@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MILF Hunter Deluxe</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: 'Arial', sans-serif;
+        }
+        #game-container {
+            width: 375px;
+            height: 667px;
+            background-image: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.3)), url('fons.jpg');
+            background-size: cover;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            border-radius: 20px;
+        }
+        #game-board {
+            width: 100%;
+            height: calc(100% - 100px);
+            position: relative;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        #start-button {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 15px 30px;
+            font-size: 24px;
+            background-color: rgb(154, 76, 175);
+            color: white;
+            border: none;
+            cursor: pointer;
+            z-index: 10;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        #start-button:hover {
+            background-color: rgb(174, 96, 195);
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+        #controls {
+            height: 120px;
+            display: none;
+            position: absolute;
+            bottom: 5;
+            width: 100%;
+            height: 100px;
+        }
+        .control-button {
+            width: 60px;
+            height: 60px;
+            background-color: rgba(154, 76, 175, 0.7);
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        .control-button:active {
+            transform: scale(0.95);
+            background-color: rgba(174, 96, 195, 0.9);
+        }
+        #up { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); }
+        #left { position: absolute; bottom: 30px; left: 20%; }
+        #right { position: absolute; bottom: 30px; right: 20%; }
+        #down { position: absolute; bottom: 0px; left: 50%; transform: translateX(-50%); }
+        .snake-segment {
+            position: absolute;
+            background-color: rgb(154, 76, 175);
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(154, 76, 175, 1); /* Canviat de 0.7 a 1 */
+        }
+        #level-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            font-size: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game-board"></div>
+        <div id="score">MILFS: 0</div>
+        <div id="level-indicator">Nivell: 1</div>
+        <button id="start-button">Iniciar joc</button>
+        <div id="controls">
+            <button id="up" class="control-button">↑</button>
+            <button id="left" class="control-button">←</button>
+            <button id="right" class="control-button">→</button>
+            <button id="down" class="control-button">↓</button>
+        </div>
+    </div>
+
+    <script>
+        // Precarrega d'imatges i sons
+        const images = [
+            'maria.png',
+            'anistn.png',
+            'lana.png',
+            'marina.png'
+        ];
+        const sounds = [
+            'MariaLondonLight.mp3',
+            'bloop2.mp3'
+        ];
+
+        function preloadAssets(urls, type) {
+            urls.forEach(url => {
+                if (type === 'image') {
+                    const img = new Image();
+                    img.src = url;
+                } else if (type === 'audio') {
+                    const audio = new Audio();
+                    audio.src = url;
+                }
+            });
+        }
+
+        preloadAssets(images, 'image');
+        preloadAssets(sounds, 'audio');
+
+        // Variables del joc
+        let snake = [];
+        let food = {};
+        let direction = 'right';
+        let gameLoop;
+        let score = 0;
+        let level = 1;
+        let speed = 150;
+        const boardWidth = 375;
+        const boardHeight = 567; // 667 - 100 (controls)
+        const gridSize = 40;
+        const foodImages = [
+            'anistn.png',
+            'lana.png',
+            'marina.png'
+        ];
+
+        // Elements del DOM
+        const gameBoard = document.getElementById('game-board');
+        const startButton = document.getElementById('start-button');
+        const scoreElement = document.getElementById('score');
+        const levelElement = document.getElementById('level-indicator');
+        const controls = document.getElementById('controls');
+
+        // Sons
+        const backgroundMusic = new Audio('MariaLondonLight.mp3');
+        const eatSound = new Audio('bloop2.mp3');
+
+        // Inicialització del joc
+        function initGame() {
+            snake = [{ x: 0, y: 0 }];
+            createFood();
+            direction = 'right';
+            score = 0;
+            level = 1;
+            speed = 130;
+            updateScore();
+            updateLevel();
+            clearInterval(gameLoop);
+            gameLoop = setInterval(moveSnake, speed);
+            startButton.style.display = 'none';
+            controls.style.display = 'block';
+            backgroundMusic.loop = true;
+            backgroundMusic.play();
+        }
+
+        // Crear menjar
+        function createFood() {
+            food = {
+                x: Math.floor(Math.random() * (boardWidth / gridSize)) * gridSize,
+                y: Math.floor(Math.random() * (boardHeight / gridSize)) * gridSize,
+                image: foodImages[Math.floor(Math.random() * foodImages.length)]
+            };
+        }
+
+        // Moure la serp
+        function moveSnake() {
+            const head = { ...snake[0] };
+
+            switch (direction) {
+                case 'up': head.y -= gridSize; break;
+                case 'down': head.y += gridSize; break;
+                case 'left': head.x -= gridSize; break;
+                case 'right': head.x += gridSize; break;
+            }
+
+            if (checkCollision(head)) {
+                gameOver();
+                return;
+            }
+
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                createFood();
+                score++;
+                updateScore();
+                eatSound.play();
+                if (score % 5 === 0) {
+                    levelUp();
+                }
+            } else {
+                snake.pop();
+            }
+
+            drawGame();
+        }
+
+        // Comprovar col·lisió
+        function checkCollision(head) {
+            return (
+                head.x < 0 || head.x >= boardWidth ||
+                head.y < 0 || head.y >= boardHeight ||
+                snake.slice(1).some(segment => segment.x === head.x && segment.y === head.y)
+            );
+        }
+
+        // Dibuixar el joc
+        function drawGame() {
+            gameBoard.innerHTML = '';
+            
+            // Dibuixar la serp
+            snake.forEach((segment, index) => {
+                const snakeElement = document.createElement(index === 0 ? 'img' : 'div');
+                snakeElement.style.position = 'absolute';
+                snakeElement.style.left = `${segment.x}px`;
+                snakeElement.style.top = `${segment.y}px`;
+                snakeElement.style.width = `${gridSize}px`;
+                snakeElement.style.height = `${gridSize}px`;
+                snakeElement.style.backgroundColor = 'rgb(154, 76, 175)';
+                snakeElement.style.borderRadius = '50%';
+                
+                if (index === 0) {
+                    snakeElement.src = 'maria.png';
+                } else {
+                    snakeElement.className = 'snake-segment';
+                    // Eliminem l'opacitat variable
+                    // snakeElement.style.opacity = 1 - (index / snake.length);
+                }
+                
+                gameBoard.appendChild(snakeElement);
+            });
+
+            // Dibuixar el menjar
+            const foodElement = document.createElement('img');
+            foodElement.style.position = 'absolute';
+            foodElement.style.left = `${food.x}px`;
+            foodElement.style.top = `${food.y}px`;
+            foodElement.style.width = `${gridSize}px`;
+            foodElement.style.height = `${gridSize}px`;
+            foodElement.style.backgroundColor = 'rgb(154 76 175)';
+            foodElement.style.borderRadius = '50%';
+            foodElement.src = food.image;
+            foodElement.style.animation = 'pulse 1s infinite alternate';
+            gameBoard.appendChild(foodElement);
+        }
+
+        // Actualitzar puntuació
+        function updateScore() {
+            scoreElement.textContent = `MILFS: ${score}`;
+        }
+
+        // Actualitzar nivell
+        function updateLevel() {
+            levelElement.textContent = `Nivell: ${level}`;
+        }
+
+        // Pujar de nivell
+        function levelUp() {
+            level++;
+            updateLevel();
+            speed = Math.max(50, speed - 10);
+            clearInterval(gameLoop);
+            gameLoop = setInterval(moveSnake, speed);
+        }
+
+        // Game Over
+        function gameOver() {
+            clearInterval(gameLoop);
+            alert(`Has perdut! Has caçat: ${score} MILFS! Nivell assolit: ${level}`);
+            startButton.style.display = 'block';
+            controls.style.display = 'none';
+            backgroundMusic.pause();
+            backgroundMusic.currentTime = 0;
+        }
+
+        // Event Listeners
+        startButton.addEventListener('click', initGame);
+
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowUp': if (direction !== 'down') direction = 'up'; break;
+                case 'ArrowDown': if (direction !== 'up') direction = 'down'; break;
+                case 'ArrowLeft': if (direction !== 'right') direction = 'left'; break;
+                case 'ArrowRight': if (direction !== 'left') direction = 'right'; break;
+            }
+        });
+
+        // Controls tàctils
+        document.getElementById('up').addEventListener('click', () => { if (direction !== 'down') direction = 'up'; });
+        document.getElementById('down').addEventListener('click', () => { if (direction !== 'up') direction = 'down'; });
+        document.getElementById('left').addEventListener('click', () => { if (direction !== 'right') direction = 'left'; });
+        document.getElementById('right').addEventListener('click', () => { if (direction !== 'left') direction = 'right'; });
+    </script>
+</body>
+</html>
